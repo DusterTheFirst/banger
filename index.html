@@ -4,11 +4,16 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+        <link data-trunk rel="rust" href="./Cargo.toml" data-type="main" data-wasm-opt="z" data-reference-types
+            data-weak-refs>
         <link data-trunk rel="copy-file" href="./404.html">
         <link data-trunk rel="copy-file" href="./manifest.json">
+        <link data-trunk rel="inline" href="./js/sw_install.js">
+        <link data-trunk rel="copy-file" href="./js/sw.js">
         <base data-trunk-public-url>
 
         <link rel="manifest" href="/manifest.json">
+
     </head>
     <body>
         <div id="main"></div>
