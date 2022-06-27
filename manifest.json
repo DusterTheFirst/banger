@@ -1,0 +1,13 @@
+{
+    "$schema": "https://json.schemastore.org/web-manifest-combined.json",
+    "background_color": "#000000",
+    "theme_color": "#000000",
+    "name": "Spotify Banger Detector",
+    "short_name": "Spotify Banger",
+    "description": "Tool to keep track of how often and when songs that hit different",
+    "display": "standalone",
+    "scope": "/",
+    "start_url": "/?pwa=true",
+    "lang": "en-US",
+    "orientation": "any"
+}
