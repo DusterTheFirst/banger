@@ -57,6 +57,7 @@ pub fn use_spotify(cx: &ScopeState) -> Spotify {
         match LocalStorage::get(SPOTIFY_STATE_STORAGE) as Result<String, _> {
             Ok(known_state) => match query.into_authorization(&known_state) {
                 Some(authorization) => {
+                    LocalStorage::delete(SPOTIFY_STATE_STORAGE);
                     LocalStorage::set(SPOTIFY_STORAGE, &authorization).unwrap();
                     *spotify_credentials.write() = Some(authorization);
                 }
