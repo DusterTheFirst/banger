@@ -1,29 +1,33 @@
-use std::time::Instant;
+use std::borrow::Cow;
 
 use monostate::MustBe;
 use serde::{Deserialize, Serialize};
-use time::{Duration, OffsetDateTime};
 
-#[derive(Deserialize)]
-pub struct ImplicitGrant {
-    access_token: String,
+#[derive(Debug, Deserialize)]
+pub struct ImplicitGrant<'t> {
+    access_token: Cow<'t, str>,
+    #[allow(dead_code)]
     token_type: MustBe!("Bearer"),
-    state: String,
-    expires_in: i64,
+    state: Cow<'t, str>,
+    expires_in: u64,
 }
 
-impl ImplicitGrant {
+impl ImplicitGrant<'_> {
     /// This should be called as soon as an [`ImplicitGrant`] is procured
-    pub fn into_authorization(self) -> Authorization {
-        Authorization {
-            access_token: self.access_token,
-            expires_at: OffsetDateTime::now_utc() + Duration::seconds(self.expires_in),
+    pub fn into_authorization(self, known_state: &str) -> Option<Authorization> {
+        if self.state != known_state {
+            return None;
         }
+
+        Some(Authorization {
+            access_token: self.access_token.into_owned(),
+            expires_at: instant::now() as u64 + self.expires_in * 1000,
+        })
     }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Authorization {
     access_token: String,
-    expires_at: OffsetDateTime,
+    expires_at: u64,
 }
