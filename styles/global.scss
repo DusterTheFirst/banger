@@ -1,6 +1,71 @@
-body {
+body,
+html {
+    height: 100%;
+    width: 100%;
+    margin: 0px;
     background-color: #000000;
     color: #dddddd;
+
     padding: env(safe-area-inset-top) env(safe-area-inset-right)
         env(safe-area-inset-bottom) env(safe-area-inset-left);
+
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.auth_section {
+    a {
+        text-decoration: none;
+        color: hsl(207, 50%, 80%);
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    .spotify {
+        color: #ffffff;
+        background-color: #181818;
+        border-radius: 2em;
+
+        display: inline-block;
+        position: relative;
+        padding: 1.5em 2em;
+        text-align: center;
+
+        img.logo {
+            height: 5em;
+            margin-bottom: 0.2em;
+        }
+
+        button {
+            padding: 0.5em 1em;
+            border-radius: 1em;
+            border: none;
+            margin-top: 1em;
+            margin-inline: 1em;
+            font-weight: bold;
+            background-color: #d3d3d3;
+
+            &.authorize {
+                text-transform: uppercase;
+            }
+            &.unauthorize {
+                text-transform: uppercase;
+                color: #8e2929;
+            }
+        }
+    }
+
+    .auto_reauthorize {
+        display: block;
+        position: relative;
+        text-align: center;
+
+        margin-top: 1em;
+    }
 }

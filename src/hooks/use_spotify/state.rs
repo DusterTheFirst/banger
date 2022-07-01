@@ -49,10 +49,6 @@ pub struct ValidSession<'state> {
 }
 
 impl<'state> ValidSession<'state> {
-    pub fn reauthorize(&self) {
-        authorize()
-    }
-
     pub fn unauthorize(&self) {
         self.session.atom_ref.set(None);
     }
