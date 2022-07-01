@@ -53,7 +53,7 @@ pub struct Image {
     /// The source URL of the image.
     pub url: String,
     /// The image height in pixels.
-    pub height: u32,
+    pub height: Option<u32>,
     /// The mage width in pixels.
-    pub width: u32,
+    pub width: Option<u32>,
 }

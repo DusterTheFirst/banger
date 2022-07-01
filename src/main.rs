@@ -29,8 +29,8 @@ fn app(cx: Scope) -> Element {
     let auto_refresh = use_persist(&cx, AUTO_REFRESH);
     let spotify = use_spotify(&cx);
 
-    if *auto_refresh.get() {
-        if let SpotifyState::Authorized(SpotifySession::Invalid(session)) = &spotify {
+    if let SpotifyState::Authorized(SpotifySession::Invalid(session)) = &spotify {
+        if *auto_refresh.get() && session.authorization().is_expired() {
             info!("Attempting to re-authorize");
             session.reauthorize();
         }
