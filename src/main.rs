@@ -1,6 +1,6 @@
 use atoms::persist::PersistAtom;
 use consts::SETTING_AUTO_REFRESH;
-use dioxus::prelude::{dioxus_elements::label, *};
+use dioxus::prelude::*;
 use hooks::{
     use_persist::use_persist,
     use_spotify::{
@@ -19,6 +19,15 @@ mod oauth;
 fn main() {
     LogTracer::init_with_filter(LevelFilter::Info).unwrap();
     tracing_wasm::set_as_global_default();
+
+    let _guard;
+    if let Some(release) = option_env!("SENTRY_RELEASE") {
+        // Only initialize sentry if there is a release env var provided
+        _guard = sentry::init(("https://eb8b67aca3bf4abbb0a293a9fdd0a9f4@o270476.ingest.sentry.io/6543764", sentry::ClientOptions {
+            release: Some(release.into()),
+            ..Default::default()
+        }));
+    }
 
     dioxus::web::launch(app);
 }
