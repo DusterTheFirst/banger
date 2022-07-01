@@ -1,4 +1,8 @@
-use std::rc::Rc;
+use std::{
+    fmt::{self, Debug, Display},
+    ops::Deref,
+    rc::Rc,
+};
 
 use dioxus::{
     core::{ScopeId, ScopeState},
@@ -74,12 +78,32 @@ impl<T: Serialize + DeserializeOwned + 'static> Clone for UsePersistAtom<T> {
 }
 
 impl<T: Serialize + DeserializeOwned + 'static> UsePersistAtom<T> {
-    pub fn read(&self) -> &T {
+    pub fn get(&self) -> &T {
         &self.value
     }
 
-    pub fn read_rc(&self) -> Rc<T> {
+    pub fn get_rc(&self) -> Rc<T> {
         self.value.clone()
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + 'static> Deref for UsePersistAtom<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + Debug + 'static> Debug for UsePersistAtom<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + Display + 'static> Display for UsePersistAtom<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(f)
     }
 }
 

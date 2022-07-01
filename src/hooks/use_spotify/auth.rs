@@ -1,12 +1,11 @@
 use gloo_storage::{LocalStorage, Storage};
 use gloo_utils::window;
 use rand::Rng;
-use tracing::{info, trace};
+use tracing::info;
 
-use super::{SPOTIFY_CLIENT_ID, SPOTIFY_STATE_STORAGE};
 use crate::{
-    hooks::use_persist::UsePersistAtom,
-    oauth::{Authorization, ImplicitGrantRequest},
+    consts::{SPOTIFY_CLIENT_ID, SPOTIFY_STATE_STORAGE},
+    oauth::ImplicitGrantRequest,
 };
 
 const SPOTIFY_AUTH_URL: &str = "https://accounts.spotify.com/authorize";

@@ -1,7 +1,4 @@
-use std::rc::Rc;
-
-use const_format::concatcp;
-use dioxus::prelude::*;
+use dioxus::{fermi::use_atom_state, prelude::*};
 use futures_util::StreamExt;
 use gloo_net::http::Request;
 use gloo_storage::{errors::StorageError, LocalStorage, Storage};
@@ -11,6 +8,7 @@ use tracing::{error, trace};
 use self::{model::Me, state::SpotifyState};
 use crate::{
     atoms::persist::PersistAtom,
+    consts::{SPOTIFY_STATE_STORAGE, SPOTIFY_STORAGE},
     hooks::use_spotify::state::{
         InvalidSession, Session, SpotifySession, Unauthorized, ValidSession,
     },
@@ -23,18 +21,12 @@ mod auth;
 pub mod model;
 pub mod state;
 
-const SPOTIFY_STORAGE: &str = concat!(env!("CARGO_PKG_NAME"), "_spotify");
-const SPOTIFY_STATE_STORAGE: &str = concatcp!(SPOTIFY_STORAGE, "_state");
-
-const SPOTIFY_CLIENT_ID: &str = "be6201c1e3154c51b50ffb302e770db5";
-
-// TODO: abstract away gets and sets to this to ensure sync with local storage
 static SPOTIFY_CREDENTIALS: PersistAtom<Option<Authorization>> =
     PersistAtom::new(SPOTIFY_STORAGE, || None);
 
-static ME: AtomRef<Option<Result<Rc<Me>, ()>>> = |_| None;
+static ME: Atom<Option<Result<Me, ()>>> = |_| None;
 
-async fn get_me(auth: &Authorization) -> Result<Result<Rc<Me>, ()>, gloo_net::Error> {
+async fn get_me(auth: &Authorization) -> Result<Result<Me, ()>, gloo_net::Error> {
     let response = Request::new("https://api.spotify.com/v1/me")
         .header("Authorization", &format!("Bearer {}", auth.access_token()))
         .header("Accept", "application/json")
@@ -48,25 +40,25 @@ async fn get_me(auth: &Authorization) -> Result<Result<Rc<Me>, ()>, gloo_net::Er
 
         Err(())
     } else {
-        Ok(Rc::new(response.json::<Me>().await?))
+        Ok(response.json::<Me>().await?)
     })
 }
 
 pub fn use_spotify(cx: &ScopeState) -> SpotifyState {
     let spotify_credentials = use_persist(cx, SPOTIFY_CREDENTIALS);
-    let me = use_atom_ref(cx, ME);
+    let me = use_atom_state(cx, ME);
 
     let routine = use_coroutine::<Authorization, _, _>(cx, |mut rx| {
         let me = me.clone();
 
         async move {
             while let Some(auth) = rx.next().await {
-                if me.read().is_some() {
+                if me.is_some() {
                     continue;
                 }
 
                 match get_me(&auth).await {
-                    Ok(new_me) => *me.write() = Some(new_me),
+                    Ok(new_me) => me.set(Some(new_me)),
                     Err(error) => {
                         error!(?error, "failed to fetch /me")
                     }
@@ -100,12 +92,12 @@ pub fn use_spotify(cx: &ScopeState) -> SpotifyState {
             }
         }
 
-        *me.write() = None;
+        me.set(None);
         LocalStorage::delete(SPOTIFY_STATE_STORAGE);
         window().location().set_hash("").unwrap();
     }
 
-    if let Some(authorization) = spotify_credentials.read() {
+    if let Some(authorization) = spotify_credentials.get() {
         let session = Session {
             atom_ref: spotify_credentials,
             authorization,
@@ -116,11 +108,8 @@ pub fn use_spotify(cx: &ScopeState) -> SpotifyState {
             return SpotifyState::Authorized(SpotifySession::Invalid(InvalidSession { session }));
         }
 
-        SpotifyState::Authorized(match me.read().as_ref() {
-            Some(Ok(me)) => SpotifySession::Valid(ValidSession {
-                session,
-                me: me.clone(),
-            }),
+        SpotifyState::Authorized(match me.as_ref() {
+            Some(Ok(me)) => SpotifySession::Valid(ValidSession { session, me }),
             Some(Err(())) => SpotifySession::Invalid(InvalidSession { session }),
             None => {
                 routine.send(session.authorization.clone());

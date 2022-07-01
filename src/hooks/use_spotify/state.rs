@@ -7,16 +7,16 @@ use super::{auth::authorize, model::Me};
 use crate::{hooks::use_persist::UsePersistAtom, oauth::Authorization};
 
 #[derive(Debug)]
-pub enum SpotifyState<'auth> {
+pub enum SpotifyState<'state> {
     Unauthorized(Unauthorized),
-    Authorized(SpotifySession<'auth>),
+    Authorized(SpotifySession<'state>),
 }
 
 #[derive(Debug)]
-pub enum SpotifySession<'auth> {
+pub enum SpotifySession<'state> {
     Unknown,
-    Valid(ValidSession<'auth>),
-    Invalid(InvalidSession<'auth>),
+    Valid(ValidSession<'state>),
+    Invalid(InvalidSession<'state>),
 }
 
 #[derive(Debug)]
@@ -29,12 +29,12 @@ impl Unauthorized {
 }
 
 #[derive(Clone)]
-pub(super) struct Session<'auth> {
-    pub(super) atom_ref: &'auth UsePersistAtom<Option<Authorization>>,
-    pub(super) authorization: &'auth Authorization,
+pub(super) struct Session<'state> {
+    pub(super) atom_ref: &'state UsePersistAtom<Option<Authorization>>,
+    pub(super) authorization: &'state Authorization,
 }
 
-impl<'auth> Debug for Session<'auth> {
+impl<'state> Debug for Session<'state> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LoggedIn")
             .field("authorization", &self.authorization)
@@ -43,12 +43,12 @@ impl<'auth> Debug for Session<'auth> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ValidSession<'auth> {
-    pub(super) session: Session<'auth>,
-    pub(super) me: Rc<Me>,
+pub struct ValidSession<'state> {
+    pub(super) session: Session<'state>,
+    pub(super) me: &'state Me,
 }
 
-impl<'auth> ValidSession<'auth> {
+impl<'state> ValidSession<'state> {
     pub fn reauthorize(&self) {
         authorize()
     }
@@ -62,16 +62,16 @@ impl<'auth> ValidSession<'auth> {
     }
 
     pub fn me(&self) -> &Me {
-        &self.me
+        self.me
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct InvalidSession<'auth> {
-    pub(super) session: Session<'auth>,
+pub struct InvalidSession<'state> {
+    pub(super) session: Session<'state>,
 }
 
-impl<'auth> InvalidSession<'auth> {
+impl<'state> InvalidSession<'state> {
     pub fn reauthorize(&self) {
         authorize()
     }
