@@ -47,7 +47,7 @@ jobs:
         needs: clippy
         runs-on: ubuntu-latest
         env:
-            TRUNK_VERSION: "v0.15.0"
+            TRUNK_VERSION: "v0.16.0"
         steps:
             - name: Stable Rust
               uses: actions-rs/toolchain@v1

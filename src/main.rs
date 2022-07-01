@@ -1,12 +1,16 @@
 use dioxus::prelude::*;
-use use_spotify::use_spotify;
+use hooks::use_spotify::{
+    state::{SpotifySession, SpotifyState},
+    use_spotify,
+};
+use tracing_log::{log::LevelFilter, LogTracer};
 
-use crate::use_spotify::state::{SpotifySession, SpotifyState};
-
+mod atoms;
+mod hooks;
 mod oauth;
-mod use_spotify;
 
 fn main() {
+    LogTracer::init_with_filter(LevelFilter::Info).unwrap();
     tracing_wasm::set_as_global_default();
 
     dioxus::web::launch(app);
@@ -47,7 +51,6 @@ fn app(cx: Scope) -> Element {
     };
 
     cx.render(rsx! {
-        div { "hello, wasm!" }
         pre { "{spotify_string}" }
         div {
             spotify

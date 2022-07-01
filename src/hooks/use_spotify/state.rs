@@ -3,25 +3,20 @@ use std::{
     rc::Rc,
 };
 
-use dioxus::fermi::UseAtomRef;
-
-use super::{
-    auth::{authorize, unauthorize},
-    model::Me,
-};
-use crate::oauth::Authorization;
+use super::{auth::authorize, model::Me};
+use crate::{hooks::use_persist::UsePersistAtom, oauth::Authorization};
 
 #[derive(Debug)]
-pub enum SpotifyState {
+pub enum SpotifyState<'auth> {
     Unauthorized(Unauthorized),
-    Authorized(SpotifySession),
+    Authorized(SpotifySession<'auth>),
 }
 
 #[derive(Debug)]
-pub enum SpotifySession {
+pub enum SpotifySession<'auth> {
     Unknown,
-    Valid(ValidSession),
-    Invalid(InvalidSession),
+    Valid(ValidSession<'auth>),
+    Invalid(InvalidSession<'auth>),
 }
 
 #[derive(Debug)]
@@ -34,12 +29,12 @@ impl Unauthorized {
 }
 
 #[derive(Clone)]
-pub(super) struct Session {
-    pub(super) atom_ref: UseAtomRef<Option<Rc<Authorization>>>,
-    pub(super) authorization: Rc<Authorization>,
+pub(super) struct Session<'auth> {
+    pub(super) atom_ref: &'auth UsePersistAtom<Option<Authorization>>,
+    pub(super) authorization: &'auth Authorization,
 }
 
-impl Debug for Session {
+impl<'auth> Debug for Session<'auth> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LoggedIn")
             .field("authorization", &self.authorization)
@@ -48,22 +43,22 @@ impl Debug for Session {
 }
 
 #[derive(Debug, Clone)]
-pub struct ValidSession {
-    pub(super) session: Session,
+pub struct ValidSession<'auth> {
+    pub(super) session: Session<'auth>,
     pub(super) me: Rc<Me>,
 }
 
-impl ValidSession {
+impl<'auth> ValidSession<'auth> {
     pub fn reauthorize(&self) {
         authorize()
     }
 
     pub fn unauthorize(&self) {
-        unauthorize(&self.session.atom_ref)
+        self.session.atom_ref.set(None);
     }
 
     pub fn authorization(&self) -> &Authorization {
-        &self.session.authorization
+        self.session.authorization
     }
 
     pub fn me(&self) -> &Me {
@@ -72,20 +67,20 @@ impl ValidSession {
 }
 
 #[derive(Debug, Clone)]
-pub struct InvalidSession {
-    pub(super) session: Session,
+pub struct InvalidSession<'auth> {
+    pub(super) session: Session<'auth>,
 }
 
-impl InvalidSession {
+impl<'auth> InvalidSession<'auth> {
     pub fn reauthorize(&self) {
         authorize()
     }
 
     pub fn unauthorize(&self) {
-        unauthorize(&self.session.atom_ref)
+        self.session.atom_ref.set(None)
     }
 
     pub fn authorization(&self) -> &Authorization {
-        &self.session.authorization
+        self.session.authorization
     }
 }

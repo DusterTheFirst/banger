@@ -6,13 +6,18 @@ use futures_util::StreamExt;
 use gloo_net::http::Request;
 use gloo_storage::{errors::StorageError, LocalStorage, Storage};
 use gloo_utils::window;
-use tracing::{error, trace, warn};
+use tracing::{error, trace};
 
 use self::{model::Me, state::SpotifyState};
 use crate::{
+    atoms::persist::PersistAtom,
+    hooks::use_spotify::state::{
+        InvalidSession, Session, SpotifySession, Unauthorized, ValidSession,
+    },
     oauth::{Authorization, ImplicitGrantResponse},
-    use_spotify::state::{InvalidSession, Session, SpotifySession, Unauthorized, ValidSession},
 };
+
+use super::use_persist::use_persist;
 
 mod auth;
 pub mod model;
@@ -24,24 +29,8 @@ const SPOTIFY_STATE_STORAGE: &str = concatcp!(SPOTIFY_STORAGE, "_state");
 const SPOTIFY_CLIENT_ID: &str = "be6201c1e3154c51b50ffb302e770db5";
 
 // TODO: abstract away gets and sets to this to ensure sync with local storage
-static SPOTIFY_CREDENTIALS: AtomRef<Option<Rc<Authorization>>> = |_| {
-    warn!("Evaluating atom");
-
-    match LocalStorage::get(SPOTIFY_STORAGE) {
-        Ok(data) => Some(Rc::new(data)),
-        Err(StorageError::KeyNotFound(_)) => None,
-        Err(StorageError::SerdeError(serde_error)) => {
-            error!(%serde_error, "Encountered an error parsing spotify local storage");
-
-            None
-        }
-        Err(StorageError::JsError(js_error)) => {
-            error!(%js_error, "Encountered a javascript error loading spotify local storage",);
-
-            None
-        }
-    }
-};
+static SPOTIFY_CREDENTIALS: PersistAtom<Option<Authorization>> =
+    PersistAtom::new(SPOTIFY_STORAGE, || None);
 
 static ME: AtomRef<Option<Result<Rc<Me>, ()>>> = |_| None;
 
@@ -64,10 +53,10 @@ async fn get_me(auth: &Authorization) -> Result<Result<Rc<Me>, ()>, gloo_net::Er
 }
 
 pub fn use_spotify(cx: &ScopeState) -> SpotifyState {
-    let spotify_credentials = use_atom_ref(cx, SPOTIFY_CREDENTIALS);
+    let spotify_credentials = use_persist(cx, SPOTIFY_CREDENTIALS);
     let me = use_atom_ref(cx, ME);
 
-    let routine = use_coroutine::<Rc<Authorization>, _, _>(cx, |mut rx| {
+    let routine = use_coroutine::<Authorization, _, _>(cx, |mut rx| {
         let me = me.clone();
 
         async move {
@@ -96,7 +85,7 @@ pub fn use_spotify(cx: &ScopeState) -> SpotifyState {
             Ok(known_state) => match query.into_authorization(&known_state) {
                 Some(authorization) => {
                     LocalStorage::set(SPOTIFY_STORAGE, &authorization).unwrap();
-                    *spotify_credentials.write() = Some(Rc::new(authorization));
+                    spotify_credentials.set(Some(authorization));
                 }
                 None => error!("States do not match, rejecting token"),
             },
@@ -116,9 +105,9 @@ pub fn use_spotify(cx: &ScopeState) -> SpotifyState {
         window().location().set_hash("").unwrap();
     }
 
-    if let Some(authorization) = spotify_credentials.read().clone() {
+    if let Some(authorization) = spotify_credentials.read() {
         let session = Session {
-            atom_ref: spotify_credentials.clone(),
+            atom_ref: spotify_credentials,
             authorization,
         };
 
@@ -134,7 +123,7 @@ pub fn use_spotify(cx: &ScopeState) -> SpotifyState {
             }),
             Some(Err(())) => SpotifySession::Invalid(InvalidSession { session }),
             None => {
-                routine.send(session.authorization);
+                routine.send(session.authorization.clone());
 
                 SpotifySession::Unknown
             }
