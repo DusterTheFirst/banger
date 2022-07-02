@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": ".",
+			"name": "/",
+		},
+		{
+			"path": "crates\\model",
+			"name": "crates/model"
+		},
+		{
+			"path": "crates\\backend",
+			"name": "crates/backend"
+		},
+		{
+			"path": "crates\\client",
+			"name": "crates/client"
+		}
+	],
+	"settings": {}
+}
