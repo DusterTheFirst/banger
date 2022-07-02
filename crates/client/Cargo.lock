@@ -45,29 +45,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "banger"
-version = "0.0.0"
-dependencies = [
- "base64",
- "const_format",
- "dioxus",
- "futures-util",
- "getrandom",
- "gloo-net",
- "gloo-storage",
- "gloo-utils",
- "instant",
- "monostate",
- "rand",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "tracing",
- "tracing-log",
- "tracing-wasm",
-]
-
-[[package]]
 name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -814,6 +791,34 @@ name = "smallvec"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fd0db749597d91ff862fd1d55ea87f7855a744a8425a64695b6fca237d1dad1"
+
+[[package]]
+name = "spotify-banger"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "const_format",
+ "dioxus",
+ "futures-util",
+ "getrandom",
+ "gloo-net",
+ "gloo-storage",
+ "gloo-utils",
+ "instant",
+ "monostate",
+ "rand",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "spotify-banger-model",
+ "tracing",
+ "tracing-log",
+ "tracing-wasm",
+]
+
+[[package]]
+name = "spotify-banger-model"
+version = "0.0.0"
 
 [[package]]
 name = "syn"

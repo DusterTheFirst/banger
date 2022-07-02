@@ -1,23 +1,4 @@
-body,
-html {
-    height: 100%;
-    width: 100%;
-    margin: 0px;
-    background-color: #000000;
-    color: #dddddd;
-
-    padding: env(safe-area-inset-top) env(safe-area-inset-right)
-        env(safe-area-inset-bottom) env(safe-area-inset-left);
-
-    font-family: Verdana, Geneva, Tahoma, sans-serif;
-
-    display: flex;
-    align-items: center;
-    flex-direction: column;
-    justify-content: center;
-    
-    overscroll-behavior: none;
-}
+@import url(global.css);
 
 .auth_section {
     a {

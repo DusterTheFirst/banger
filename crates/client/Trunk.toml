@@ -1,0 +1,5 @@
+[build]
+filehash = false
+
+[[proxy]]
+backend = "http://localhost:9000/api"
