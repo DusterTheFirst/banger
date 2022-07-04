@@ -3,7 +3,7 @@ use axum::{
     http::{self, StatusCode, Uri},
     response::{IntoResponse, Response},
 };
-use tracing::error;
+use tracing::{error, trace};
 
 macro_rules! derive_into_response {
     ($ty:ty) => {
@@ -42,7 +42,11 @@ pub struct NotFound {
 derive_into_response!(NotFound);
 
 pub async fn not_found(uri: Uri) -> impl IntoResponse {
+    let path = uri.path();
+
+    trace!(path, "user requested unknown path");
+
     NotFound {
-        path: uri.path().to_string(),
+        path: path.to_string(),
     }
 }

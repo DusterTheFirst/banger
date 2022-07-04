@@ -1,11 +1,13 @@
 use std::net::SocketAddr;
 
-use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
-use tracing::{debug, Level};
+use axum::{routing::get, Router};
+use rust_embed::RustEmbed;
+use tracing::debug;
+use tracing_subscriber::EnvFilter;
 
 use crate::error::not_found;
 
-mod app_content;
+mod static_content;
 mod error;
 
 fn main() {
@@ -16,17 +18,23 @@ fn main() {
         .block_on(async_main());
 }
 
+
+#[derive(RustEmbed)]
+#[folder = "../client/dist/"]
+struct WebAppContent;
+
 async fn async_main() {
     tracing_subscriber::fmt()
-        .with_max_level(Level::TRACE)
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_error| {
+            EnvFilter::new("info,spotify_banger_backend=trace,spotify_banger_model=trace")
+        }))
         .init();
 
-    let api = Router::new()
-        .route("/healthy", get(|| async { "OK" }));
+    let api = Router::new().route("/healthy", get(|| async { "OK" }));
 
     let app = Router::new()
         .nest("/api", api)
-        .fallback(get(app_content::app_content))
+        .merge(static_content::create_router::<WebAppContent>(true))
         .fallback(get(not_found));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 9000));
