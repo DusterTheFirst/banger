@@ -1,4 +1,5 @@
 use std::{
+    env,
     io::{stderr, stdout, Write},
     process::{Command, ExitCode},
 };
@@ -12,34 +13,33 @@ fn main() -> ExitCode {
     println!("cargo:rerun-if-changed=../client/styles");
     println!("cargo:rerun-if-changed=../client/img");
 
+    if env::var("SKIP_TRUNK_BUILD").is_ok() {
+        println!("cargo:warning=trunk build has been skipped through the use of SKIP_TRUNK_BUILD");
+        return ExitCode::SUCCESS;
+    }
+
     let profile = std::env::var("PROFILE").expect("no PROFILE environment variable");
-    let run_trunk = match profile.as_str() {
-        "debug" => false,
-        "release" => true,
-        _ => false,
-    };
+    if profile == "debug" {
+        println!("cargo:warning=trunk build has been skipped due to debug build");
+        return ExitCode::SUCCESS;
+    }
 
-    if run_trunk {
-        let output =
-            Command::new(std::env::var("TRUNK_PATH").unwrap_or_else(|_error| "trunk".to_string()))
-                .current_dir("../client")
-                .args(["build", "--release"])
-                .output()
-                .expect("failed to run trunk");
+    let output = Command::new(env::var("TRUNK_PATH").unwrap_or_else(|_error| "trunk".to_string()))
+        .current_dir("../client")
+        .args(["build", "--release"])
+        .output()
+        .expect("failed to run trunk");
 
-        if output.status.success() {
-            ExitCode::SUCCESS
-        } else {
-            stdout()
-                .write_all(&output.stdout)
-                .expect("failed to write to stdout");
-            stderr()
-                .write_all(&output.stderr)
-                .expect("failed to write to stderr");
-            eprintln!("trunk failed to run");
-            ExitCode::FAILURE
-        }
-    } else {
+    if output.status.success() {
         ExitCode::SUCCESS
+    } else {
+        stdout()
+            .write_all(&output.stdout)
+            .expect("failed to write to stdout");
+        stderr()
+            .write_all(&output.stderr)
+            .expect("failed to write to stderr");
+        eprintln!("trunk failed to run");
+        ExitCode::FAILURE
     }
 }

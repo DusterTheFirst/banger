@@ -22,6 +22,8 @@ jobs:
 
             - run: cargo clippy --release --all-features
               working-directory: ${{ matrix.dir }}
+              env:
+                  SKIP_TRUNK_BUILD: 1
 
     fmt:
         runs-on: ubuntu-latest
@@ -42,7 +44,7 @@ jobs:
         runs-on: ubuntu-latest
         env:
             FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        steps:    
+        steps:
             - uses: actions/checkout@v2
 
             - uses: superfly/flyctl-actions/setup-flyctl@master
