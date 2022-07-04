@@ -1,0 +1,45 @@
+on:
+    push:
+        branches:
+            - main
+
+name: Rust
+
+jobs:
+    clippy:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                dir: [".", "./crates/client"]
+        steps:
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: clippy
+                  target: wasm32-unknown-unknown
+
+            - uses: actions/checkout@v2
+
+            - run: cargo clippy --release --all-features
+              working-directory: ${{ dir }}
+
+    fmt:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: dtolnay/rust-toolchain@stable
+
+            - uses: actions/checkout@v2
+
+            - run: cargo fmt --check
+              working-directory: ${{ dir }}
+
+    deploy:
+        needs: clippy
+        runs-on: ubuntu-latest
+        env:
+            FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        steps:    
+            - uses: actions/checkout@v2
+
+            - uses: superfly/flyctl-actions/setup-flyctl@master
+            - run: flyctl deploy --remote-only

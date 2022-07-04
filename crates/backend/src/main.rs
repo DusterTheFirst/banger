@@ -37,7 +37,7 @@ async fn async_main() {
         .merge(static_content::create_router::<WebAppContent>(true))
         .fallback(get(not_found));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 9000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     debug!("listening on http://{}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
