@@ -1,5 +1,6 @@
 use std::{
     env,
+    fs::DirBuilder,
     io::{stderr, stdout, Write},
     process::{Command, ExitCode},
 };
@@ -13,12 +14,17 @@ fn main() -> ExitCode {
     println!("cargo:rerun-if-changed=../client/styles");
     println!("cargo:rerun-if-changed=../client/img");
 
+    DirBuilder::new()
+        .recursive(true)
+        .create("../client/dist")
+        .expect("failed to create trunk dist directory");
+
     if env::var("SKIP_TRUNK_BUILD").is_ok() {
         println!("cargo:warning=trunk build has been skipped through the use of SKIP_TRUNK_BUILD");
         return ExitCode::SUCCESS;
     }
 
-    let profile = std::env::var("PROFILE").expect("no PROFILE environment variable");
+    let profile = env::var("PROFILE").expect("no PROFILE environment variable");
     if profile == "debug" {
         println!("cargo:warning=trunk build has been skipped due to debug build");
         return ExitCode::SUCCESS;
