@@ -7,8 +7,8 @@ use tracing_subscriber::EnvFilter;
 
 use crate::error::not_found;
 
-mod static_content;
 mod error;
+mod static_content;
 
 fn main() {
     tokio::runtime::Builder::new_current_thread()
@@ -17,7 +17,6 @@ fn main() {
         .unwrap()
         .block_on(async_main());
 }
-
 
 #[derive(RustEmbed)]
 #[folder = "../client/dist/"]
