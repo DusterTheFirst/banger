@@ -1,14 +1,16 @@
-use std::net::SocketAddr;
+use std::{env, net::SocketAddr};
 
 use axum::{routing::get, Router};
 use rust_embed::RustEmbed;
-use tracing::debug;
+use tracing::{debug, error};
 use tracing_subscriber::EnvFilter;
 
 use crate::error::not_found;
 
+mod api;
 mod error;
 mod static_content;
+mod serde;
 
 fn main() {
     tokio::runtime::Builder::new_current_thread()
@@ -29,14 +31,23 @@ async fn async_main() {
         }))
         .init();
 
-    let api = Router::new().route("/healthy", get(|| async { "OK" }));
-
     let app = Router::new()
-        .nest("/api", api)
+        .nest("/api", api::create_router())
         .merge(static_content::create_router::<WebAppContent>(true))
         .fallback(get(not_found));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let addr = env::var("BIND")
+        .ok()
+        .and_then(|addr| {
+            addr.parse()
+                .map_err(|error| {
+                    error!(%error, "failed to parse BIND environment variable");
+                    error
+                })
+                .ok()
+        })
+        .unwrap_or_else(|| SocketAddr::from(([127, 0, 0, 1], 9000)));
+
     debug!("listening on http://{}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
