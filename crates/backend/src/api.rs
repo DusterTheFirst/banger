@@ -1,22 +1,22 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
+    env,
     fmt::{self, Display},
-    marker::PhantomData,
     str::FromStr,
     sync::{Arc, Mutex},
 };
 
 use axum::{
-    body::{boxed, Empty},
     extract::Query,
-    http::{header, status::StatusCode, uri::Parts, Uri},
-    response::Response,
+    http::status::StatusCode,
+    response::{IntoResponse, Redirect, Response},
     routing::get,
     Extension, Router,
 };
 use base64::display::Base64Display;
 use monostate::MustBe;
 use rand::Rng;
+use reqwest::header;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -40,25 +40,84 @@ pub fn create_router() -> Router {
         .route("/auth/spotify/redirect", get(spotify_redirect))
         .route("/auth/github", get(|| async { "TODO" }))
         .route("/auth/github/redirect", get(|| async { "TODO" }))
-        .layer(Extension(OAuthStateStorage::<SpotifyBucket>::default()))
-        .layer(Extension(OAuthStateStorage::<GithubBucket>::default()))
+        .layer(Extension(OAuthStateStorage::default()))
+        .layer(Extension(OAuthConfig::from_env()))
+        .layer(Extension(
+            reqwest::ClientBuilder::new()
+                .https_only(true)
+                .use_native_tls()
+                .user_agent(concat!(
+                    env!("CARGO_PKG_NAME"),
+                    "/",
+                    env!("CARGO_PKG_VERSION"),
+                ))
+                .build()
+                .unwrap(),
+        ))
+}
+
+#[derive(Debug, Clone)]
+struct OAuthConfig {
+    spotify_client_secret: Arc<str>,
+    spotify_client_id: Arc<str>,
+    // github_client_secret: Arc<str>
+}
+
+impl OAuthConfig {
+    pub fn from_env() -> Self {
+        Self {
+            spotify_client_secret: Arc::from(
+                env::var("SPOTIFY_CLIENT_SECRET").expect("SPOTIFY_CLIENT_SECRET env var not set"),
+            ),
+
+            spotify_client_id: Arc::from(
+                env::var("SPOTIFY_CLIENT_ID").expect("SPOTIFY_CLIENT_ID env var not set"),
+            ),
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
-struct CodeGrantRequest {
+struct CodeGrantRequest<'s> {
     response_type: MustBe!("code"),
-    client_id: &'static str,
-    scope: &'static str,
-    redirect_uri: &'static str,
+    client_id: &'s str,
+    scope: &'s str,
+    redirect_uri: &'s str,
     #[serde(with = "from_to_str")]
     state: State,
+    show_dialog: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum CodeGrantResponseInner {
+    Success { code: String },
+    Failure { error: String },
 }
 
 #[derive(Debug, Deserialize)]
 struct CodeGrantResponse {
-    code: String,
+    #[serde(flatten)]
+    inner: CodeGrantResponseInner,
+
     #[serde(with = "from_to_str")]
     state: State,
+}
+
+#[derive(Debug, Serialize)]
+struct AccessTokenRequest {
+    grant_type: MustBe!("authorization_code"),
+    code: String,
+    redirect_uri: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
+struct AccessTokenResponse {
+    access_token: String,
+    token_type: MustBe!("Bearer"),
+    scope: String,
+    expires_in: i32,
+    refresh_token: String,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
@@ -98,22 +157,11 @@ impl FromStr for State {
 }
 
 #[derive(Default, Clone)]
-struct OAuthStateStorage<B: Bucket> {
+struct OAuthStateStorage {
     storage: Arc<Mutex<HashSet<State>>>,
-    _bucket: PhantomData<B>,
 }
 
-trait Bucket: Default {}
-
-#[derive(Default, Debug, Clone, Copy)]
-struct SpotifyBucket;
-impl Bucket for SpotifyBucket {}
-
-#[derive(Default, Debug, Clone, Copy)]
-struct GithubBucket;
-impl Bucket for GithubBucket {}
-
-impl<B: Bucket> OAuthStateStorage<B> {
+impl OAuthStateStorage {
     pub fn create_state(&self) -> State {
         let mut storage = self.storage.lock().unwrap();
 
@@ -141,33 +189,73 @@ impl<B: Bucket> OAuthStateStorage<B> {
 }
 
 const SPOTIFY_AUTH_URL: &str = "https://accounts.spotify.com/authorize";
-const SPOTIFY_CLIENT_ID: &str = "be6201c1e3154c51b50ffb302e770db5";
+const SPOTIFY_TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 const SPOTIFY_SCOPE: &str = "user-read-currently-playing";
 
 async fn spotify(
-    Extension(state_storage): Extension<OAuthStateStorage<SpotifyBucket>>,
-) -> Response {
+    Extension(state_storage): Extension<OAuthStateStorage>,
+    Extension(config): Extension<OAuthConfig>,
+) -> Redirect {
     let query = serde_urlencoded::to_string(CodeGrantRequest {
         response_type: Default::default(),
-        client_id: SPOTIFY_CLIENT_ID,
+        client_id: &config.spotify_client_id,
         scope: SPOTIFY_SCOPE,
         redirect_uri: redirect_uri::SPOTIFY,
         state: state_storage.create_state(),
+        show_dialog: true,
     })
     .unwrap();
 
-    let redirect = format!("{SPOTIFY_AUTH_URL}?{query}");
-
-    Response::builder()
-        .status(StatusCode::TEMPORARY_REDIRECT)
-        .header(header::LOCATION, redirect)
-        .body(boxed(Empty::new()))
-        .unwrap()
+    Redirect::temporary(&format!("{SPOTIFY_AUTH_URL}?{query}"))
 }
 
 async fn spotify_redirect(
     Query(grant): Query<CodeGrantResponse>,
-    Extension(state_storage): Extension<OAuthStateStorage<SpotifyBucket>>,
+    Extension(reqwest): Extension<reqwest::Client>,
+    Extension(state_storage): Extension<OAuthStateStorage>,
+    Extension(config): Extension<OAuthConfig>,
 ) -> Response {
-    todo!()
+    // TODO: html error pages
+    if !state_storage.validate_state(grant.state) {
+        return (
+            StatusCode::BAD_REQUEST,
+            "invalid state, suspected request forgery. did you navigate back to this page?",
+        )
+            .into_response();
+    }
+
+    match grant.inner {
+        CodeGrantResponseInner::Failure { error } => (
+            StatusCode::UNAUTHORIZED,
+            format!("spotify rejected authorization request: {error}"),
+        )
+            .into_response(),
+        CodeGrantResponseInner::Success { code } => {
+            let auth = base64::encode(format!(
+                "{}:{}",
+                config.spotify_client_id, config.spotify_client_secret
+            ));
+
+            let response = reqwest
+                .post(SPOTIFY_TOKEN_URL)
+                .header(header::AUTHORIZATION, format!("Basic {auth}"))
+                .form(&AccessTokenRequest {
+                    code,
+                    grant_type: Default::default(),
+                    redirect_uri: redirect_uri::SPOTIFY,
+                })
+                .send()
+                .await;
+
+            // TODO: store and so shizzle with response
+
+            dbg!(response
+                .unwrap()
+                .json::<AccessTokenResponse>()
+                .await
+                .unwrap());
+
+            todo!()
+        }
+    }
 }

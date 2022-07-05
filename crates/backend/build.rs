@@ -14,19 +14,24 @@ fn main() -> ExitCode {
     println!("cargo:rerun-if-changed=../client/styles");
     println!("cargo:rerun-if-changed=../client/img");
 
+    let pkg_name = env::var("CARGO_PKG_NAME").expect("CARGO_PKG_NAME environment variable not set");
+
     DirBuilder::new()
         .recursive(true)
         .create("../client/dist")
         .expect("failed to create trunk dist directory");
 
     if env::var("SKIP_TRUNK_BUILD").is_ok() {
-        println!("cargo:warning=trunk build has been skipped through the use of SKIP_TRUNK_BUILD");
+        println!("cargo:warning={pkg_name}(build.rs) trunk build has been skipped through the use of SKIP_TRUNK_BUILD");
+
         return ExitCode::SUCCESS;
     }
 
-    let profile = env::var("PROFILE").expect("no PROFILE environment variable");
-    if profile == "debug" {
-        println!("cargo:warning=trunk build has been skipped due to debug build");
+    if env::var("PROFILE").expect("PROFILE environment variable not set") == "debug" {
+        println!(
+            "cargo:warning={pkg_name}(build.rs) trunk build has been skipped due to debug build"
+        );
+
         return ExitCode::SUCCESS;
     }
 
