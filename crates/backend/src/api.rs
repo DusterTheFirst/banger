@@ -8,7 +8,7 @@ use std::{
 
 use axum::{
     extract::Query,
-    http::status::StatusCode,
+    http::{status::StatusCode, HeaderValue},
     response::{IntoResponse, Redirect, Response},
     routing::get,
     Extension, Router,
@@ -16,22 +16,22 @@ use axum::{
 use base64::display::Base64Display;
 use monostate::MustBe;
 use rand::Rng;
-use reqwest::header;
+use reqwest::{header, Method};
 use serde::{Deserialize, Serialize};
+use tower::ServiceBuilder;
+use tower_http::{cors::CorsLayer, ServiceBuilderExt};
 use tracing::warn;
 
 use crate::serde::from_to_str;
 
-mod redirect_uri {
-    #[cfg(debug_assertions)]
-    const BASE: &str = "http://127.0.0.1:8080/";
+#[cfg(debug_assertions)]
+const ORIGIN: &str = "http://127.0.0.1:8080/";
 
-    #[cfg(not(debug_assertions))]
-    const BASE: &str = "http://banger.spotify.dusterthefirst.com/";
+#[cfg(not(debug_assertions))]
+const ORIGIN: &str = "http://banger.spotify.dusterthefirst.com/";
 
-    pub const SPOTIFY: &str = const_format::concatcp!(BASE, "api/auth/spotify/redirect");
-    pub const GITHUB: &str = const_format::concatcp!(BASE, "api/auth/github/redirect");
-}
+pub const SPOTIFY_REDIRECT_URI: &str = const_format::concatcp!(ORIGIN, "api/auth/spotify/redirect");
+pub const GITHUB_REDIRECT_URI: &str = const_format::concatcp!(ORIGIN, "api/auth/github/redirect");
 
 pub fn create_router() -> Router {
     Router::new()
@@ -40,20 +40,34 @@ pub fn create_router() -> Router {
         .route("/auth/spotify/redirect", get(spotify_redirect))
         .route("/auth/github", get(|| async { "TODO" }))
         .route("/auth/github/redirect", get(|| async { "TODO" }))
-        .layer(Extension(OAuthStateStorage::default()))
-        .layer(Extension(OAuthConfig::from_env()))
-        .layer(Extension(
-            reqwest::ClientBuilder::new()
-                .https_only(true)
-                .use_native_tls()
-                .user_agent(concat!(
-                    env!("CARGO_PKG_NAME"),
-                    "/",
-                    env!("CARGO_PKG_VERSION"),
+        .layer(
+            ServiceBuilder::new()
+                .layer(Extension(OAuthStateStorage::default()))
+                .layer(Extension(OAuthConfig::from_env()))
+                .layer(Extension(
+                    reqwest::ClientBuilder::new()
+                        .https_only(true)
+                        .use_native_tls()
+                        .user_agent(concat!(
+                            env!("CARGO_PKG_NAME"),
+                            "/",
+                            env!("CARGO_PKG_VERSION"),
+                        ))
+                        .build()
+                        .unwrap(),
                 ))
-                .build()
-                .unwrap(),
-        ))
+                .override_response_header(
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("no-store"),
+                )
+                .layer(
+                    CorsLayer::new()
+                        .allow_credentials(false)
+                        .allow_headers([])
+                        .allow_methods([Method::GET])
+                        .allow_origin([ORIGIN.parse().unwrap()]),
+                ),
+        )
 }
 
 #[derive(Debug, Clone)]
@@ -200,7 +214,7 @@ async fn spotify(
         response_type: Default::default(),
         client_id: &config.spotify_client_id,
         scope: SPOTIFY_SCOPE,
-        redirect_uri: redirect_uri::SPOTIFY,
+        redirect_uri: SPOTIFY_REDIRECT_URI,
         state: state_storage.create_state(),
         show_dialog: true,
     })
@@ -242,7 +256,7 @@ async fn spotify_redirect(
                 .form(&AccessTokenRequest {
                     code,
                     grant_type: Default::default(),
-                    redirect_uri: redirect_uri::SPOTIFY,
+                    redirect_uri: SPOTIFY_REDIRECT_URI,
                 })
                 .send()
                 .await;

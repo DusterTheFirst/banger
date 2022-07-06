@@ -1,3 +1,6 @@
 [workspace]
 members = ["crates/*"]
 exclude = ["crates/client"]
+
+[profile.dev.package."*"]
+opt-level = 2

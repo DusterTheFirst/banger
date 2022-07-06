@@ -7,15 +7,15 @@
         <title>Spotify Banger</title>
 
         <base data-trunk-public-url>
-        <link data-trunk rel="rust" href="./Cargo.toml" data-type="main" data-wasm-opt="3" data-weak-refs>
-        <link data-trunk rel="css" href="./styles/global.css">
-        <link data-trunk rel="scss" href="./styles/app.scss">
-        <link data-trunk rel="copy-dir" href="./img/">
 
         <link rel="manifest" href="/manifest.json">
         <link data-trunk rel="copy-file" href="./manifest.json">
 
-        <link rel="preload" href="/img/Spotify_Logo_RGB_Green.png" as="fetch" type="image/png">
+        <link rel="preload" href="/img/Spotify_Logo_RGB_Green.png" as="image" type="image/png">
+
+        <link data-trunk rel="rust" href="./Cargo.toml" data-type="main" data-wasm-opt="3" data-weak-refs>
+        <link data-trunk rel="scss" href="./styles/app.scss">
+        <link data-trunk rel="copy-dir" href="./img/">
     </head>
-    <body id="main"> </body>
+    <body id="main"></body>
 </html>

@@ -41,12 +41,15 @@ pub struct NotFound {
 
 derive_into_response!(NotFound);
 
-pub async fn not_found(uri: Uri) -> impl IntoResponse {
+pub async fn not_found(uri: Uri) -> (StatusCode, NotFound) {
     let path = uri.path();
 
     trace!(path, "user requested unknown path");
 
-    NotFound {
-        path: path.to_string(),
-    }
+    (
+        StatusCode::NOT_FOUND,
+        NotFound {
+            path: path.to_string(),
+        },
+    )
 }

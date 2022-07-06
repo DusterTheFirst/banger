@@ -2,6 +2,8 @@ use std::{env, net::SocketAddr};
 
 use axum::{routing::get, Router};
 use rust_embed::RustEmbed;
+use tower::ServiceBuilder;
+use tower_http::{cors::CorsLayer, metrics::InFlightRequestsLayer, ServiceBuilderExt};
 use tracing::{debug, error};
 use tracing_subscriber::EnvFilter;
 
@@ -18,7 +20,7 @@ fn main() {
 
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_error| {
-            EnvFilter::new("debug,spotify_banger_backend=trace,spotify_banger_model=trace")
+            EnvFilter::new("info,spotify_banger_backend=trace,spotify_banger_model=trace")
         }))
         .init();
 
@@ -34,10 +36,20 @@ fn main() {
 struct WebAppContent;
 
 async fn async_main() {
+    // TODO: add counter to prometheus
+    let (in_flight_layer, in_flight_counter) = InFlightRequestsLayer::pair();
+
     let app = Router::new()
-        .nest("/api", api::create_router())
         .merge(static_content::create_router::<WebAppContent>(true))
-        .fallback(get(not_found));
+        .fallback(get(not_found))
+        .layer(CorsLayer::permissive())
+        .nest("/api", api::create_router())
+        .layer(
+            ServiceBuilder::new()
+                .trace_for_http()
+                .compression()
+                .layer(in_flight_layer),
+        );
 
     let addr = env::var("BIND")
         .ok()
