@@ -1,18 +1,12 @@
-use std::{
-    env, io,
-    net::SocketAddr,
-    path::{Path, PathBuf},
-};
+use std::{env, io, net::SocketAddr, sync::atomic::AtomicU64};
 
 use axum::{
-    routing::{any_service, get, get_service},
+    routing::{any_service, get_service},
     Router,
 };
 use reqwest::StatusCode;
 use tower::ServiceBuilder;
-use tower_http::{
-    cors::CorsLayer, metrics::InFlightRequestsLayer, services::ServeDir, ServiceBuilderExt,
-};
+use tower_http::{cors::CorsLayer, services::ServeDir, ServiceBuilderExt};
 use tracing::{debug, error, Level};
 use tracing_subscriber::EnvFilter;
 
@@ -44,9 +38,6 @@ fn main() {
 }
 
 async fn async_main() {
-    // TODO: add counter to prometheus
-    let (in_flight_layer, in_flight_counter) = InFlightRequestsLayer::pair();
-
     let app = Router::new()
         .fallback(
             any_service(
@@ -58,7 +49,7 @@ async fn async_main() {
                 }))
                 .precompressed_br()
                 .append_index_html_on_directories(true)
-                .fallback(get_service(tower::service_fn(not_found::<io::Error>))),
+                .fallback(get_service(tower::service_fn(not_found::<io::Error>))), // FIXME:
             )
             .handle_error(|_err: io::Error| async {
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
@@ -66,12 +57,7 @@ async fn async_main() {
         )
         .layer(CorsLayer::permissive())
         .nest("/api", api::create_router())
-        .layer(
-            ServiceBuilder::new()
-                .trace_for_http()
-                .compression()
-                .layer(in_flight_layer),
-        );
+        .layer(ServiceBuilder::new().trace_for_http().compression());
 
     let addr = env::var("BIND")
         .ok()

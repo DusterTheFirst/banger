@@ -29,22 +29,14 @@ use crate::serde::from_to_str;
 const ORIGIN: &str = "http://127.0.0.1:8080/";
 
 #[cfg(not(debug_assertions))]
-const ORIGIN: &str = "http://banger.spotify.dusterthefirst.com/";
+const ORIGIN: &str = "https://banger.spotify.dusterthefirst.com/";
 
 pub const SPOTIFY_REDIRECT_URI: &str = const_format::concatcp!(ORIGIN, "api/auth/spotify/redirect");
 pub const GITHUB_REDIRECT_URI: &str = const_format::concatcp!(ORIGIN, "api/auth/github/redirect");
 
 pub fn create_router() -> Router {
     Router::new()
-        .route(
-            "/healthy",
-            get(|req: Request<Body>| async move {
-                let headers = req.headers();
-                dbg!(headers);
-
-                "OK"
-            }),
-        )
+        .route("/healthy", get(|| async { "OK" }))
         .route("/auth/spotify", get(spotify))
         .route("/auth/spotify/redirect", get(spotify_redirect))
         .route("/auth/github", get(|| async { "TODO" }))
