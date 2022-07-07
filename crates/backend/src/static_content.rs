@@ -44,7 +44,6 @@ pub fn create_router<EmbeddedFiles: RustEmbed>(map_index: bool) -> Router {
             headers.typed_insert(
                 CacheControl::new()
                     .with_max_age(Duration::from_secs(21600))
-                    .with_no_cache()
                     .with_public(),
             );
 
