@@ -29,7 +29,7 @@ tls_skip_verify = false
 
 [[services.ports]]
 force_https = true
-handlers = []
+handlers = ["http"]
 port = 80
 
 [[services.ports]]
