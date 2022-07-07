@@ -1,10 +1,19 @@
-use std::{env, net::SocketAddr};
+use std::{
+    env, io,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+};
 
-use axum::{routing::get, Router};
-use rust_embed::RustEmbed;
+use axum::{
+    routing::{any_service, get, get_service},
+    Router,
+};
+use reqwest::StatusCode;
 use tower::ServiceBuilder;
-use tower_http::{cors::CorsLayer, metrics::InFlightRequestsLayer, ServiceBuilderExt};
-use tracing::{debug, error};
+use tower_http::{
+    cors::CorsLayer, metrics::InFlightRequestsLayer, services::ServeDir, ServiceBuilderExt,
+};
+use tracing::{debug, error, Level};
 use tracing_subscriber::EnvFilter;
 
 use crate::error::not_found;
@@ -12,7 +21,6 @@ use crate::error::not_found;
 mod api;
 mod error;
 mod serde;
-mod static_content;
 
 fn main() {
     #[cfg(debug_assertions)]
@@ -20,7 +28,11 @@ fn main() {
 
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_error| {
-            EnvFilter::new("info,spotify_banger_backend=trace,spotify_banger_model=trace")
+            EnvFilter::default()
+                .add_directive(Level::INFO.into())
+                .add_directive("tower_http=debug".parse().unwrap())
+                .add_directive("spotify_banger_backend=trace".parse().unwrap())
+                .add_directive("spotify_banger_model=trace".parse().unwrap())
         }))
         .init();
 
@@ -31,17 +43,27 @@ fn main() {
         .block_on(async_main());
 }
 
-#[derive(RustEmbed)]
-#[folder = "../client/dist/"]
-struct WebAppContent;
-
 async fn async_main() {
     // TODO: add counter to prometheus
     let (in_flight_layer, in_flight_counter) = InFlightRequestsLayer::pair();
 
     let app = Router::new()
-        .merge(static_content::create_router::<WebAppContent>(true))
-        .fallback(get(not_found))
+        .fallback(
+            any_service(
+                ServeDir::new(env::var("STATIC_FILES").unwrap_or_else(|_| {
+                    format!(
+                        "{}/../client/dist",
+                        env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set")
+                    )
+                }))
+                .precompressed_br()
+                .append_index_html_on_directories(true)
+                .fallback(get_service(tower::service_fn(not_found::<io::Error>))),
+            )
+            .handle_error(|_err: io::Error| async {
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+            }),
+        )
         .layer(CorsLayer::permissive())
         .nest("/api", api::create_router())
         .layer(

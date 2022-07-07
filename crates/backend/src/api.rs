@@ -7,8 +7,9 @@ use std::{
 };
 
 use axum::{
+    body::Body,
     extract::Query,
-    http::{status::StatusCode, HeaderValue},
+    http::{status::StatusCode, HeaderValue, Request},
     response::{IntoResponse, Redirect, Response},
     routing::get,
     Extension, Router,
@@ -35,7 +36,15 @@ pub const GITHUB_REDIRECT_URI: &str = const_format::concatcp!(ORIGIN, "api/auth/
 
 pub fn create_router() -> Router {
     Router::new()
-        .route("/healthy", get(|| async { "OK" }))
+        .route(
+            "/healthy",
+            get(|req: Request<Body>| async move {
+                let headers = req.headers();
+                dbg!(headers);
+
+                "OK"
+            }),
+        )
         .route("/auth/spotify", get(spotify))
         .route("/auth/spotify/redirect", get(spotify_redirect))
         .route("/auth/github", get(|| async { "TODO" }))

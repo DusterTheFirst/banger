@@ -1,6 +1,7 @@
 use askama::Template;
 use axum::{
-    http::{self, StatusCode, Uri},
+    body::Body,
+    http::{self, request, Request, StatusCode, Uri},
     response::{IntoResponse, Response},
 };
 use tracing::{error, trace};
@@ -41,15 +42,16 @@ pub struct NotFound {
 
 derive_into_response!(NotFound);
 
-pub async fn not_found(uri: Uri) -> (StatusCode, NotFound) {
-    let path = uri.path();
+pub async fn not_found<E>(request: Request<Body>) -> Result<Response, E> {
+    let path = request.uri().path();
 
     trace!(path, "user requested unknown path");
 
-    (
+    Ok((
         StatusCode::NOT_FOUND,
         NotFound {
             path: path.to_string(),
         },
     )
+        .into_response())
 }
